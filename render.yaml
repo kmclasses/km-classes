@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: km-classes
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASS
+        sync: false
