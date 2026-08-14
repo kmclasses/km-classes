@@ -13,7 +13,8 @@ if (!fs.existsSync(DATA_FILE)) {
     JSON.stringify(
       {
         mcqs: [],
-        tests: []
+        tests: [],
+        notes: []
       },
       null,
       2
@@ -22,7 +23,15 @@ if (!fs.existsSync(DATA_FILE)) {
 }
 
 function readData() {
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+  const data = JSON.parse(
+    fs.readFileSync(DATA_FILE, "utf8")
+  );
+
+  if (!Array.isArray(data.mcqs)) data.mcqs = [];
+  if (!Array.isArray(data.tests)) data.tests = [];
+  if (!Array.isArray(data.notes)) data.notes = [];
+
+  return data;
 }
 
 function saveData(data) {
@@ -34,9 +43,9 @@ function saveData(data) {
 
 app.use(express.json({ limit: "2mb" }));
 
-app.use(express.static(
-  path.join(__dirname, "public")
-));
+app.use(
+  express.static(path.join(__dirname, "public"))
+);
 
 
 // HOME
@@ -49,11 +58,8 @@ app.get("/", (req, res) => {
 
 // GET ALL CONTENT
 app.get("/api/content", (req, res) => {
-
   const data = readData();
-
   res.json(data);
-
 });
 
 
@@ -67,25 +73,22 @@ app.post("/api/admin/login", (req, res) => {
     process.env.ADMIN_USER || "admin";
 
   const correctPassword =
-    process.env.ADMIN_PASS || "change-me";
+    process.env.ADMIN_PASS || "1234";
 
   if (
     username === correctUsername &&
     password === correctPassword
   ) {
-
     return res.json({
       ok: true,
       message: "Login successful"
     });
-
   }
 
   res.status(401).json({
     ok: false,
     message: "Invalid username or password"
   });
-
 });
 
 
@@ -93,7 +96,6 @@ app.post("/api/admin/login", (req, res) => {
 app.post("/api/mcqs", (req, res) => {
 
   const data = readData();
-
   const mcq = req.body;
 
   if (
@@ -106,11 +108,9 @@ app.post("/api/mcqs", (req, res) => {
     !mcq.d ||
     !mcq.answer
   ) {
-
     return res.status(400).json({
       error: "Please fill all required fields"
     });
-
   }
 
   mcq.id = Date.now().toString();
@@ -124,7 +124,6 @@ app.post("/api/mcqs", (req, res) => {
     message: "MCQ saved successfully",
     mcq: mcq
   });
-
 });
 
 
@@ -133,23 +132,19 @@ app.delete("/api/mcqs/:id", (req, res) => {
 
   const data = readData();
 
-  data.mcqs =
-    data.mcqs.filter(
-      q => q.id !== req.params.id
-    );
+  data.mcqs = data.mcqs.filter(
+    q => q.id !== req.params.id
+  );
 
-  data.tests =
-    data.tests.map(test => {
+  data.tests = data.tests.map(test => {
 
-      test.questionIds =
-        (test.questionIds || [])
-        .filter(
-          id => id !== req.params.id
-        );
+    test.questionIds =
+      (test.questionIds || []).filter(
+        id => id !== req.params.id
+      );
 
-      return test;
-
-    });
+    return test;
+  });
 
   saveData(data);
 
@@ -157,7 +152,6 @@ app.delete("/api/mcqs/:id", (req, res) => {
     ok: true,
     message: "MCQ deleted"
   });
-
 });
 
 
@@ -165,7 +159,6 @@ app.delete("/api/mcqs/:id", (req, res) => {
 app.post("/api/tests", (req, res) => {
 
   const data = readData();
-
   const test = req.body;
 
   if (
@@ -175,12 +168,10 @@ app.post("/api/tests", (req, res) => {
     !Array.isArray(test.questionIds) ||
     test.questionIds.length === 0
   ) {
-
     return res.status(400).json({
       error:
         "Test title, exam, subject and questions are required"
     });
-
   }
 
   test.id = Date.now().toString();
@@ -194,7 +185,6 @@ app.post("/api/tests", (req, res) => {
     message: "Test created successfully",
     test: test
   });
-
 });
 
 
@@ -203,10 +193,9 @@ app.delete("/api/tests/:id", (req, res) => {
 
   const data = readData();
 
-  data.tests =
-    data.tests.filter(
-      test => test.id !== req.params.id
-    );
+  data.tests = data.tests.filter(
+    test => test.id !== req.params.id
+  );
 
   saveData(data);
 
@@ -214,7 +203,50 @@ app.delete("/api/tests/:id", (req, res) => {
     ok: true,
     message: "Test deleted"
   });
+});
 
+
+// ADD NOTE
+app.post("/api/notes", (req, res) => {
+
+  const data = readData();
+  const note = req.body;
+
+  if (!note.title || !note.content) {
+    return res.status(400).json({
+      error: "Note title and content are required"
+    });
+  }
+
+  note.id = Date.now().toString();
+
+  data.notes.push(note);
+
+  saveData(data);
+
+  res.json({
+    ok: true,
+    message: "Note saved successfully",
+    note: note
+  });
+});
+
+
+// DELETE NOTE
+app.delete("/api/notes/:id", (req, res) => {
+
+  const data = readData();
+
+  data.notes = data.notes.filter(
+    note => note.id !== req.params.id
+  );
+
+  saveData(data);
+
+  res.json({
+    ok: true,
+    message: "Note deleted"
+  });
 });
 
 
@@ -223,16 +255,8 @@ app.listen(
   PORT,
   "0.0.0.0",
   () => {
-
     console.log(
-      "KM CLASSES server running on port " +
-      PORT
+      "KM CLASSES server running on port " + PORT
     );
-
   }
-);  const d=read(); n.id=Date.now().toString(); d.notes.push(n); write(d); res.json(n);
-});
-app.delete("/api/notes/:id",(req,res)=>{
-  const d=read(); d.notes=d.notes.filter(n=>n.id!==req.params.id); write(d); res.json({ok:true});
-});
-app.listen(PORT,()=>console.log(`KM CLASSES running on http://localhost:${PORT}`));
+);
