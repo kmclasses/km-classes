@@ -1,40 +1,236 @@
-const express=require("express");
-const path=require("path");
-const fs=require("fs");
-const app=express();
-const PORT=process.env.PORT||3000;
-const DATA=path.join(__dirname,"data.json");
-const ADMIN_USER=process.env.ADMIN_USER||"admin";
-const ADMIN_PASS=process.env.ADMIN_PASS||"change-me";
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
 
-if(!fs.existsSync(DATA)) fs.writeFileSync(DATA,JSON.stringify({
-  mcqs:[],notes:[],classes:[]
-},null,2));
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname,"public")));
+const DATA_FILE = path.join(__dirname, "data.json");
 
-function read(){return JSON.parse(fs.readFileSync(DATA,"utf8"))}
-function write(d){fs.writeFileSync(DATA,JSON.stringify(d,null,2))}
+if (!fs.existsSync(DATA_FILE)) {
+  fs.writeFileSync(
+    DATA_FILE,
+    JSON.stringify(
+      {
+        mcqs: [],
+        tests: []
+      },
+      null,
+      2
+    )
+  );
+}
 
-app.post("/api/admin/login",(req,res)=>{
-  const {username,password}=req.body||{};
-  if(username===ADMIN_USER && password===ADMIN_PASS) return res.json({ok:true});
-  res.status(401).json({ok:false,message:"Invalid admin credentials"});
+function readData() {
+  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+}
+
+function saveData(data) {
+  fs.writeFileSync(
+    DATA_FILE,
+    JSON.stringify(data, null, 2)
+  );
+}
+
+app.use(express.json({ limit: "2mb" }));
+
+app.use(express.static(
+  path.join(__dirname, "public")
+));
+
+
+// HOME
+app.get("/", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "public", "index.html")
+  );
 });
-app.get("/api/content",(req,res)=>res.json(read()));
 
-app.post("/api/mcqs",(req,res)=>{
-  const q=req.body||{};
-  if(!q.question||!q.a||!q.b||!q.c||!q.d||!q.answer) return res.status(400).json({message:"Required fields missing"});
-  const d=read(); q.id=Date.now().toString(); d.mcqs.push(q); write(d); res.json(q);
+
+// GET ALL CONTENT
+app.get("/api/content", (req, res) => {
+
+  const data = readData();
+
+  res.json(data);
+
 });
-app.delete("/api/mcqs/:id",(req,res)=>{
-  const d=read(); d.mcqs=d.mcqs.filter(q=>q.id!==req.params.id); write(d); res.json({ok:true});
+
+
+// ADMIN LOGIN
+app.post("/api/admin/login", (req, res) => {
+
+  const username = req.body.username;
+  const password = req.body.password;
+
+  const correctUsername =
+    process.env.ADMIN_USER || "admin";
+
+  const correctPassword =
+    process.env.ADMIN_PASS || "change-me";
+
+  if (
+    username === correctUsername &&
+    password === correctPassword
+  ) {
+
+    return res.json({
+      ok: true,
+      message: "Login successful"
+    });
+
+  }
+
+  res.status(401).json({
+    ok: false,
+    message: "Invalid username or password"
+  });
+
 });
-app.post("/api/notes",(req,res)=>{
-  const n=req.body||{}; if(!n.title) return res.status(400).json({message:"Title required"});
-  const d=read(); n.id=Date.now().toString(); d.notes.push(n); write(d); res.json(n);
+
+
+// ADD MCQ
+app.post("/api/mcqs", (req, res) => {
+
+  const data = readData();
+
+  const mcq = req.body;
+
+  if (
+    !mcq.exam ||
+    !mcq.subject ||
+    !mcq.question ||
+    !mcq.a ||
+    !mcq.b ||
+    !mcq.c ||
+    !mcq.d ||
+    !mcq.answer
+  ) {
+
+    return res.status(400).json({
+      error: "Please fill all required fields"
+    });
+
+  }
+
+  mcq.id = Date.now().toString();
+
+  data.mcqs.push(mcq);
+
+  saveData(data);
+
+  res.json({
+    ok: true,
+    message: "MCQ saved successfully",
+    mcq: mcq
+  });
+
+});
+
+
+// DELETE MCQ
+app.delete("/api/mcqs/:id", (req, res) => {
+
+  const data = readData();
+
+  data.mcqs =
+    data.mcqs.filter(
+      q => q.id !== req.params.id
+    );
+
+  data.tests =
+    data.tests.map(test => {
+
+      test.questionIds =
+        (test.questionIds || [])
+        .filter(
+          id => id !== req.params.id
+        );
+
+      return test;
+
+    });
+
+  saveData(data);
+
+  res.json({
+    ok: true,
+    message: "MCQ deleted"
+  });
+
+});
+
+
+// CREATE TEST
+app.post("/api/tests", (req, res) => {
+
+  const data = readData();
+
+  const test = req.body;
+
+  if (
+    !test.title ||
+    !test.exam ||
+    !test.subject ||
+    !Array.isArray(test.questionIds) ||
+    test.questionIds.length === 0
+  ) {
+
+    return res.status(400).json({
+      error:
+        "Test title, exam, subject and questions are required"
+    });
+
+  }
+
+  test.id = Date.now().toString();
+
+  data.tests.push(test);
+
+  saveData(data);
+
+  res.json({
+    ok: true,
+    message: "Test created successfully",
+    test: test
+  });
+
+});
+
+
+// DELETE TEST
+app.delete("/api/tests/:id", (req, res) => {
+
+  const data = readData();
+
+  data.tests =
+    data.tests.filter(
+      test => test.id !== req.params.id
+    );
+
+  saveData(data);
+
+  res.json({
+    ok: true,
+    message: "Test deleted"
+  });
+
+});
+
+
+// START SERVER
+app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+
+    console.log(
+      "KM CLASSES server running on port " +
+      PORT
+    );
+
+  }
+);  const d=read(); n.id=Date.now().toString(); d.notes.push(n); write(d); res.json(n);
 });
 app.delete("/api/notes/:id",(req,res)=>{
   const d=read(); d.notes=d.notes.filter(n=>n.id!==req.params.id); write(d); res.json({ok:true});
